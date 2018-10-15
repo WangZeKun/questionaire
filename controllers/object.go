@@ -184,7 +184,8 @@ func (c *AnswerController) Answer() {
 	//	c.Ctx.WriteString(BadRequest)
 	//	return
 	//}
-	data, num, err := models.Check(oid)
+	//data, num, err := models.Check(oid)
+	_, num, err := models.Check(oid)
 	if err != nil {
 		beego.Error(err)
 		c.Ctx.WriteString(InternalServerError)
@@ -202,7 +203,7 @@ func (c *AnswerController) Answer() {
 		return
 	}
 	a := make(map[string]interface{})
-	a["question"] = data
+	// a["question"] = data
 	a["score"] = num //TODO 分数计算
 	c.Data["json"] = addCode(a)
 	c.ServeJSON()

@@ -13,16 +13,17 @@ var (
 )
 
 type Paper struct {
-	Id        int         `orm:"pk"`
-	Title     string      `orm:"size(255)"`
-	StartTime time.Time   `orm:"type(datetime)"`
-	EndTime   time.Time   `orm:"type(datetime)"`
-	Questions []*Question `orm:"reverse(many)"`
+	Id        int            `orm:"pk"`
+	Title     string         `orm:"size(255)"`
+	StartTime time.Time      `orm:"type(datetime)"`
+	EndTime   time.Time      `orm:"type(datetime)"`
+	Questions *[3][]Question `orm:"-"`
 }
 
 func (p *Paper) Read() error {
 	o := orm.NewOrm()
-	_, err := o.Raw("select id,title,type from question where paper_id = ? order by id", p.Id).QueryRows(&p.Questions)
+	//_, err := o.Raw("select id,title,type from question where paper_id = ? order by id", p.Id).QueryRows(&p.Questions)
+	err := p.RandomQuestion(1, 1, 1)
 	if err != nil {
 		return err
 	}
@@ -34,7 +35,7 @@ func (p *Paper) Read() error {
 	i := 0
 	j := 0
 	for i < len(p.Questions) && j < len(options) {
-		if p.Questions[i].Id == options[j].QuestionId {
+		if p.Questions[i].QId == options[j].QuestionId {
 			p.Questions[i].Options = append(p.Questions[i].Options, options[j])
 			j++
 		} else {
@@ -58,4 +59,21 @@ func GetPaper(id int) (p Paper, err error) {
 	} else {
 		return
 	}
+}
+
+func (p *Paper) RandomQuestion(select_, judge, text int) (err error) {
+	o := orm.NewOrm()
+	_, err = o.Raw("select * from question where type = 0 and paper_id = ? order by rand() limit ?", p.Id, select_).QueryRows(&p.Questions[0])
+	if err != nil {
+		return err
+	}
+	_, err = o.Raw("select * from question where type = 1 and paper_id = ? order by rand() limit ?", p.Id, judge).QueryRows(&p.Questions[0])
+	if err != nil {
+		return err
+	}
+	_, err = o.Raw("select * from question where type = 2 and paper_id = ? order by rand() limit ?", p.Id, text).QueryRows(&p.Questions[0])
+	if err != nil {
+		return err
+	}
+	return
 }

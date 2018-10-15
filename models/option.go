@@ -3,13 +3,14 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/astaxie/beego/orm"
 )
 
 type Option struct {
-	Id       int `orm:"pk"`
-	Context  string
-	IsTrue   bool      `orm:"type(bool)"`
+	OId        int `orm:"pk;column(id)"`
+	Context    string
+	IsTrue     bool `orm:"type(bool)"`
 	QuestionId int
 }
 
