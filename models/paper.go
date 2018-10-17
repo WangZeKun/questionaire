@@ -1,10 +1,11 @@
 package models
 
 import (
+	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
-
-	"github.com/astaxie/beego/orm"
 )
 
 var (
@@ -13,42 +14,21 @@ var (
 )
 
 type Paper struct {
-	Id        int            `orm:"pk"`
-	Title     string         `orm:"size(255)"`
-	StartTime time.Time      `orm:"type(datetime)"`
-	EndTime   time.Time      `orm:"type(datetime)"`
-	Questions *[3][]Question `orm:"-"`
-}
-
-func (p *Paper) Read() error {
-	o := orm.NewOrm()
-	//_, err := o.Raw("select id,title,type from question where paper_id = ? order by id", p.Id).QueryRows(&p.Questions)
-	err := p.RandomQuestion(1, 1, 1)
-	if err != nil {
-		return err
-	}
-	var options []*Option
-	_, err = o.Raw("select `option`.id,`option`.context,`option`.question_id  from `option` "+
-		"inner join question inner join paper "+
-		"on paper.id=question.paper_id and question.id=`option`.question_id"+
-		" where paper.id = ? order by `option`.question_id", p.Id).QueryRows(&options)
-	i := 0
-	j := 0
-	for i < len(p.Questions) && j < len(options) {
-		if p.Questions[i].QId == options[j].QuestionId {
-			p.Questions[i].Options = append(p.Questions[i].Options, options[j])
-			j++
-		} else {
-			i++
-		}
-	}
-	return nil
+	Id        int                      `json:"id"`
+	Title     string                   `json:"title"`
+	StartTime time.Time                `json:"-"`
+	EndTime   time.Time                `json:"-"`
+	Questions []map[string]interface{} `json:"questions"`
 }
 
 func GetPaper(id int) (p Paper, err error) {
 	p = Paper{}
-	o := orm.NewOrm()
-	err = o.QueryTable("paper").Filter("id", id).One(&p)
+	var sTime, eTime string
+	row := DB.QueryRow("select id,title,start_time,end_time from paper where id = ?", id)
+	err = row.Scan(&p.Id, &p.Title, &sTime, &eTime)
+	fmt.Println(sTime, eTime)
+	p.StartTime, _ = time.Parse("2006-01-02 15:04:05", sTime)
+	p.EndTime, _ = time.Parse("2006-01-02 15:04:05", eTime)
 	if err != nil {
 		return Paper{}, err
 	}
@@ -62,18 +42,36 @@ func GetPaper(id int) (p Paper, err error) {
 }
 
 func (p *Paper) RandomQuestion(select_, judge, text int) (err error) {
-	o := orm.NewOrm()
-	_, err = o.Raw("select * from question where type = 0 and paper_id = ? order by rand() limit ?", p.Id, select_).QueryRows(&p.Questions[0])
+	stmt, err := DB.Prepare("select id,title,type,body from question where type = ?  and paper_id = ? order by rand() limit ?")
 	if err != nil {
-		return err
+		return
 	}
-	_, err = o.Raw("select * from question where type = 1 and paper_id = ? order by rand() limit ?", p.Id, judge).QueryRows(&p.Questions[0])
+	fmt.Println(p.Id)
+	rows, err := stmt.Query(0, p.Id, judge)
 	if err != nil {
-		return err
+		return
 	}
-	_, err = o.Raw("select * from question where type = 2 and paper_id = ? order by rand() limit ?", p.Id, text).QueryRows(&p.Questions[0])
+	p.Questions = append(p.Questions, map[string]interface{}{"data": getData(rows), "name": "判断"})
+	rows, err = stmt.Query(1, p.Id, select_)
 	if err != nil {
-		return err
+		return
+	}
+	p.Questions = append(p.Questions, map[string]interface{}{"data": getData(rows), "name": "选择"})
+	rows, err = stmt.Query(2, p.Id, text)
+	if err != nil {
+		return
+	}
+	p.Questions = append(p.Questions, map[string]interface{}{"data": getData(rows), "name": "问答"})
+	return
+}
+
+func getData(rows *sql.Rows) (qs []*Question) {
+	for rows.Next() {
+		var q Question
+		var body []byte
+		rows.Scan(&q.QId, &q.Title, &q.Type, &body)
+		json.Unmarshal(body, &q.Options)
+		qs = append(qs, &q)
 	}
 	return
 }

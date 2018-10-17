@@ -18,6 +18,7 @@ func init() {
 		beego.NSInclude(
 			&controllers.AnswerController{},
 		),
+		beego.NSRouter("/*", &controllers.AnswerController{}, "options:Options"),
 	)
 	beego.AddNamespace(ns)
 }

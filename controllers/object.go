@@ -1,12 +1,14 @@
 package controllers
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"questionaire/models"
 	"strings"
+	"time"
 
 	"github.com/astaxie/beego"
-	"github.com/astaxie/beego/orm"
 )
 
 // Operations about object
@@ -24,6 +26,22 @@ const (
 	UserHasExist        string = `{"code":400,"message":"用户已答卷!"}`
 )
 
+func (c *AnswerController) Prepare() {
+	c.Ctx.ResponseWriter.Header().Set("Access-Control-Allow-Credentials", "true")
+	c.Ctx.ResponseWriter.Header().Set("Access-Control-Allow-Origin", "*")
+}
+
+func (c *AnswerController) Options() {
+	c.Ctx.ResponseWriter.Header().Set("Access-Control-Allow-Origin", "*")                           //允许访问源
+	c.Ctx.ResponseWriter.Header().Set("Access-Control-Allow-Methods", "POST, GET, PUT, OPTIONS")    //允许post访问
+	c.Ctx.ResponseWriter.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization") //header的类型
+	c.Ctx.ResponseWriter.Header().Set("Access-Control-Max-Age", "1728000")
+	c.Ctx.ResponseWriter.Header().Set("Access-Control-Allow-Credentials", "true")
+	c.Ctx.ResponseWriter.Header().Set("content-type", "application/json") //返回数据格式是json
+	c.Data["json"] = map[string]interface{}{"status": 200, "message": "ok", "moreinfo": ""}
+	c.ServeJSON()
+}
+
 // @Title GetTitle
 // @Description 拿到题目的Title
 // @Param id body json true "题目id"
@@ -34,6 +52,7 @@ func (c *AnswerController) GetTitle() {
 	var id int
 	var ob map[string]json.RawMessage
 
+	fmt.Println(string(c.Ctx.Input.RequestBody))
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &ob)
 
 	if err != nil {
@@ -54,7 +73,7 @@ func (c *AnswerController) GetTitle() {
 			c.Ctx.WriteString(ForbiddionTimeEarly)
 		} else if err == models.ErrTimeLate {
 			c.Ctx.WriteString(ForbiddionTimeLate)
-		} else if err == orm.ErrNoRows {
+		} else if err == sql.ErrNoRows {
 			c.Ctx.WriteString(NotFound)
 		} else {
 			c.Ctx.WriteString(InternalServerError)
@@ -90,11 +109,12 @@ func (c *AnswerController) GetPaper() {
 	}
 	a, err := json.Marshal(ob["user"])
 	err = json.Unmarshal(a, &user)
-	user.PaperId = id
 	if err != nil {
+		beego.Error(err)
 		c.Ctx.WriteString(BadRequest)
 		return
 	}
+	user.PaperId = id
 	err = user.Insert()
 	if err != nil {
 		beego.Error(err)
@@ -112,14 +132,14 @@ func (c *AnswerController) GetPaper() {
 			c.Ctx.WriteString(ForbiddionTimeEarly)
 		} else if err == models.ErrTimeLate {
 			c.Ctx.WriteString(ForbiddionTimeLate)
-		} else if err == orm.ErrNoRows {
+		} else if err == sql.ErrNoRows {
 			c.Ctx.WriteString(NotFound)
 		} else {
 			c.Ctx.WriteString(InternalServerError)
 		}
 		return
 	}
-	err = p.Read()
+	err = p.RandomQuestion(10, 5, 5)
 	if err != nil {
 		beego.Error(err)
 		c.Ctx.WriteString(InternalServerError)
@@ -127,6 +147,7 @@ func (c *AnswerController) GetPaper() {
 	}
 	c.SetSession("number", user.Number)
 	c.SetSession("pid", user.PaperId)
+	c.SetSession("time", time.Now())
 	c.Data["json"] = addCode(p)
 	c.ServeJSON()
 }
@@ -138,35 +159,21 @@ func (c *AnswerController) GetPaper() {
 // @Failure 200 {code: ,message: }
 // @router /answer [post]
 func (c *AnswerController) Answer() {
-	var pid int
-	var oid []int
-	var ob map[string]json.RawMessage
+	var ob []models.Option
 
 	number, ok := c.GetSession("number").(string)
-	pid_1, ok := c.GetSession("pid").(int)
 	if !ok {
 		c.Ctx.WriteString(ForbiddionTimeOut)
 		return
 	}
-
+	pid, ok := c.GetSession("pid").(int)
+	t, ok := c.GetSession("time").(time.Time)
+	beego.Debug(time.Now().Sub(t).Minutes())
+	if time.Now().Sub(t).Minutes() > 15.0 {
+		c.Ctx.WriteString(ForbiddionTimeOut)
+		return
+	}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &ob)
-	if err != nil {
-		beego.Error(err)
-		c.Ctx.WriteString(BadRequest)
-		return
-	}
-	err = json.Unmarshal(ob["pid"], &pid)
-	if err != nil {
-		beego.Error(err)
-		c.Ctx.WriteString(BadRequest)
-		return
-	}
-	if pid != pid_1 {
-		beego.Informational("试卷错误！")
-		c.Ctx.WriteString(BadRequest)
-		return
-	}
-	err = json.Unmarshal(ob["oid"], &oid)
 	if err != nil {
 		beego.Error(err)
 		c.Ctx.WriteString(BadRequest)
@@ -185,7 +192,7 @@ func (c *AnswerController) Answer() {
 	//	return
 	//}
 	//data, num, err := models.Check(oid)
-	_, num, err := models.Check(oid)
+	num, err := models.Check(ob)
 	if err != nil {
 		beego.Error(err)
 		c.Ctx.WriteString(InternalServerError)

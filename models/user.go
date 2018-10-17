@@ -1,35 +1,37 @@
 package models
 
 import "errors"
-import "github.com/astaxie/beego/orm"
 
 type User struct {
-	Name    string
-	Number  string //学号
-	School  string
-	Class   string
-	Phone   string
-	Other   string
-	Score   int
-	PaperId int
+	Name      string
+	Number    string //学号
+	School    string
+	Class     string
+	Phone     string
+	Other     string
+	Score     int
+	PaperId   int
+	questions string
+	answer    string
 }
 
 var ErrHasScore error = errors.New("用户已答卷")
 
 func (u *User) Insert() (err error) {
-	o := orm.NewOrm()
-	_, err = o.Raw("insert into user (name, number, school, class, phone, other, paper_id) "+
-		"select ?, ?, ?, ?, ?, ?, ? "+
-		"from dual where not exists(select * from user where user.paper_id = ? and user.number = ? and user.score = 0)",
-		u.Name, u.Number, u.School, u.Class, u.Phone, u.Other, u.PaperId, u.PaperId, u.Number).Exec()
+	_, err = DB.Exec("insert into user (name, number, school, class, phone, other,score, paper_id) "+
+		"select ?, ?, ?, ?, ?, ?, ?,? "+
+		"from dual where not exists(select * from user where user.paper_id = ? and user.number = ? and user.score = -1)",
+		u.Name, u.Number, u.School, u.Class, u.Phone, u.Other, -1, u.PaperId, u.PaperId, u.Number)
 	return
 }
 
 func (u *User) Update() error {
-	o := orm.NewOrm()
-	result, err := o.Raw("update user set score = ? where number=? and paper_id=? and score !=0", u.Score, u.Number, u.PaperId).Exec()
+	result, err := DB.Exec("update user set score = ? where number=? and paper_id=? and score = -1", u.Score, u.Number, u.PaperId)
+	if err != nil {
+		return err
+	}
 	num, _ := result.RowsAffected()
-	if num == 0 {
+	if num == 0 && u.Score != 0 {
 		return ErrHasScore
 	}
 	//_, err := o.Update(u, "score")

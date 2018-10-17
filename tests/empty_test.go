@@ -22,10 +22,10 @@ func init() {
 	beego.TestBeegoInit(apppath)
 }
 
-var cookie_ string
+var cookie_test string
 
 // TestGet is a sample to run an endpoint test
-func TestGetTitle(t *testing.T) {
+func TestGetTitle_(t *testing.T) {
 	var jsonStr = []byte(`{"id":5}`) //unvaild id
 	r, _ := http.NewRequest("POST", "/api/getTitle", bytes.NewBuffer(jsonStr))
 	r.Header.Set("Content-Type", "application/json")
@@ -50,7 +50,7 @@ func TestGetTitle(t *testing.T) {
 	})
 }
 
-func TestGetPaper(t *testing.T) {
+func TestGetPaper_(t *testing.T) {
 	var jsonStr = []byte(`{"id":5,"user":{"Name":"test","Number":"2012211516","School":"123456","Class":"2018211203","Phone":"123132113"}}`) //unvaild id
 	r, _ := http.NewRequest("POST", "/api/getPaper", bytes.NewBuffer(jsonStr))
 	r.Header.Set("Content-Type", "application/json")

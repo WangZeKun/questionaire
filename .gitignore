@@ -2,4 +2,7 @@
 *.tmp
 questionaire
 swagger
-routers/commentsRouter__________home_zekin_go_src_questionaire_controllers.go
+routers/commentsRouter__________*
+logs
+lastupdate.tmp
+
