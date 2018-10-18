@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"questionaire/models"
+	"regexp"
 	"strings"
 	"time"
 
@@ -91,26 +92,39 @@ func (c *AnswerController) GetTitle() {
 // @Failure 200 {code: ,message: }
 // @router /getPaper [post]
 func (c *AnswerController) GetPaper() {
+
+	end, ok := c.GetSession("end").(bool)
+	if ok && end {
+		beego.Informational("用户已答卷")
+		c.Ctx.WriteString(UserHasExist)
+		return
+	}
+
 	var id int
 	var user models.User
 	var ob map[string]json.RawMessage
 
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &ob)
 	if err != nil {
-		beego.Error(err)
+		beego.Informational("用户输入错误：", err)
 		c.Ctx.WriteString(BadRequest)
 		return
 	}
 	err = json.Unmarshal(ob["id"], &id)
 	if err != nil {
-		beego.Error(err)
+		beego.Informational("用户输入错误：", err)
 		c.Ctx.WriteString(BadRequest)
 		return
 	}
 	a, err := json.Marshal(ob["user"])
 	err = json.Unmarshal(a, &user)
 	if err != nil {
-		beego.Error(err)
+		beego.Informational("用户输入错误：", err)
+		c.Ctx.WriteString(BadRequest)
+		return
+	}
+	if !checkNumber(user.Number) {
+		beego.Informational(user.Number, " 学号匹配错误！")
 		c.Ctx.WriteString(BadRequest)
 		return
 	}
@@ -213,6 +227,10 @@ func (c *AnswerController) Answer() {
 	// a["question"] = data
 	a["score"] = num //TODO 分数计算
 	c.Data["json"] = addCode(a)
+	c.DelSession("pid")
+	c.DelSession("number")
+	c.DelSession("time")
+	c.SetSession("end", true)
 	c.ServeJSON()
 }
 
@@ -221,4 +239,9 @@ func addCode(in interface{}) map[string]interface{} {
 	a["data"] = in
 	a["code"] = 200
 	return a
+}
+
+func checkNumber(in string) bool {
+	exp := regexp.MustCompile(`201[5678]\d{6}`)
+	return exp.MatchString(in)
 }
