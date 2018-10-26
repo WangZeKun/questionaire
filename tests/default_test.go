@@ -51,7 +51,7 @@ func TestGetTitle(t *testing.T) {
 }
 
 func TestGetPaper(t *testing.T) {
-	var jsonStr = []byte(`{"id":1,"user":{"Name":"test","Number":"2212111516","School":"123456","Class":"2018211203","Phone":"123132113"}}`)
+	var jsonStr = []byte(`{"id":1,"user":{"Name":"test","Number":"2018211516","School":"123456","Class":"2018211203","Phone":"123132113"}}`)
 	r, _ := http.NewRequest("POST", "/api/getPaper", bytes.NewBuffer(jsonStr))
 	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

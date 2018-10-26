@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"questionaire/models"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/astaxie/beego"
@@ -128,17 +127,6 @@ func (c *AnswerController) GetPaper() {
 		c.Ctx.WriteString(BadRequest)
 		return
 	}
-	user.PaperId = id
-	err = user.Insert()
-	if err != nil {
-		beego.Error(err)
-		if strings.HasPrefix(err.Error(), "Error 1062") {
-			c.Ctx.WriteString(UserHasExist)
-		} else {
-			c.Ctx.WriteString(InternalServerError)
-		}
-		return
-	}
 	p, err := models.GetPaper(id)
 	if err != nil {
 		beego.Error(err)
@@ -151,6 +139,17 @@ func (c *AnswerController) GetPaper() {
 		} else {
 			c.Ctx.WriteString(InternalServerError)
 		}
+		return
+	}
+	user.PaperId = id
+	err = user.Insert()
+	if err == models.ErrHasScore {
+		beego.Error(err)
+		c.Ctx.WriteString(UserHasExist)
+		return
+	} else if err != nil {
+		beego.Error(err)
+		c.Ctx.WriteString(InternalServerError)
 		return
 	}
 	err = p.RandomQuestion(10, 5, 5)
@@ -182,7 +181,7 @@ func (c *AnswerController) Answer() {
 	}
 	pid, ok := c.GetSession("pid").(int)
 	t, ok := c.GetSession("time").(time.Time)
-	beego.Debug(time.Now().Sub(t).Minutes())
+	//beego.Debug(time.Now().Sub(t).Minutes())
 	if time.Now().Sub(t).Minutes() > 15.0 {
 		c.Ctx.WriteString(ForbiddionTimeOut)
 		return
@@ -200,6 +199,8 @@ func (c *AnswerController) Answer() {
 	//}
 	//pid := int(pid_f)
 	u := models.User{Number: number, PaperId: pid}
+
+	u.Answer = string(c.Ctx.Input.RequestBody)
 	//oid_f, ok := ob["oid"].([]float64)
 	//if !ok {
 	//	c.Ctx.WriteString(BadRequest)

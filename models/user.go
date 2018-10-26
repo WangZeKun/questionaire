@@ -1,6 +1,10 @@
 package models
 
-import "errors"
+import (
+	"errors"
+	"strings"
+	"time"
+)
 
 type User struct {
 	Name      string
@@ -11,22 +15,42 @@ type User struct {
 	Other     string
 	Score     int
 	PaperId   int
-	questions string
-	answer    string
+	Answer    string
+	StartTime time.Time
+	EndTime   time.Time
 }
 
 var ErrHasScore error = errors.New("用户已答卷")
 
 func (u *User) Insert() (err error) {
-	_, err = DB.Exec("insert into user (name, number, school, class, phone, other,score, paper_id) "+
-		"select ?, ?, ?, ?, ?, ?, ?,? "+
-		"from dual where not exists(select * from user where user.paper_id = ? and user.number = ? and user.score = -1)",
-		u.Name, u.Number, u.School, u.Class, u.Phone, u.Other, -1, u.PaperId, u.PaperId, u.Number)
-	return
+	_, err = DB.Exec("insert into user (name, number, school, class, phone, other,score, paper_id,start_time) "+
+		"select ?, ?, ?, ?, ?, ?, ?,?,? ",
+		u.Name, u.Number, u.School, u.Class, u.Phone, u.Other, -1, u.PaperId, getTime())
+	if err != nil && strings.HasPrefix(err.Error(), "Error 1062") {
+		stmt, err := DB.Prepare("select count(number) from user where paper_id=? and score=-1")
+		if err != nil {
+			return err
+		}
+		row := stmt.QueryRow(u.PaperId)
+		var count int
+		err = row.Scan(&count)
+		if err != nil {
+			return err
+		}
+		if count == 1 {
+			_, err = DB.Exec("update user set start_time=? where number=? and paper_id = ?", getTime(), u.Number, u.PaperId)
+			if err != nil {
+				return err
+			}
+		} else {
+			return ErrHasScore
+		}
+	}
+	return nil
 }
 
 func (u *User) Update() error {
-	result, err := DB.Exec("update user set score = ? where number=? and paper_id=? and score = -1", u.Score, u.Number, u.PaperId)
+	result, err := DB.Exec("update user set score = ?,end_time=?,answer=? where number=? and paper_id=? and score = -1", u.Score, getTime(), u.Answer, u.Number, u.PaperId)
 	if err != nil {
 		return err
 	}
@@ -36,4 +60,8 @@ func (u *User) Update() error {
 	}
 	//_, err := o.Update(u, "score")
 	return err
+}
+
+func getTime() string {
+	return time.Now().Format("2006-01-02 15:04:05")
 }
