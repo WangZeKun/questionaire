@@ -2,6 +2,8 @@ package models
 
 import (
 	"fmt"
+
+	"github.com/astaxie/beego"
 )
 
 type Option struct {
@@ -19,14 +21,14 @@ func Check(os []Option) (num int64, err error) {
 	//		"	inner join question on `option`.question_id = question.id "+
 	//		"	where `option`.is_true = false "+
 	//		"	and (`option`.id,`option`.answer) in %s) ", trans(os))
-	sql := fmt.Sprintf("select count(id) from option where (id,is_true,answer) in %s", trans(os))
-	fmt.Println(sql)
+	sql := fmt.Sprintf("select sum(score) from option where (id,is_true,answer) in %s", trans(os))
+	beego.Informational(sql)
 	row := DB.QueryRow(sql)
 	err = row.Scan(&num)
 	if err != nil {
 		return
 	}
-	return num * 5, err
+	return num, err
 }
 
 func trans(os []Option) string {

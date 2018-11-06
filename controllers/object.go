@@ -11,20 +11,18 @@ import (
 	"github.com/astaxie/beego"
 )
 
+const BadRequest string = `{"code":400,"message":"错误的输入!"}`
+const InternalServerError string = `{"code":500,"message":"服务器错误!"}`
+const ForbiddionTimeEarly string = `{"code":403,"message":"问卷还未发布!"}`
+const ForbiddionTimeLate string = `{"code":403,"message":"问卷已经结束!"}`
+const ForbiddionTimeOut string = `{"code":403,"message":"答题超时!"}`
+const NotFound string = `{"code":404,"message":"未找到试卷!"}`
+const UserHasExist string = `{"code":400,"message":"用户已答卷!"}`
+
 // Operations about object
 type AnswerController struct {
 	beego.Controller
 }
-
-const (
-	BadRequest          string = `{"code":400,"message":"错误的输入!"}`
-	InternalServerError string = `{"code":500,"message":"服务器错误!"}`
-	ForbiddionTimeEarly string = `{"code":403,"message":"问卷还未发布!"}`
-	ForbiddionTimeLate  string = `{"code":403,"message":"问卷已经结束!"}`
-	ForbiddionTimeOut   string = `{"code":403,"message":"答题超时!"}`
-	NotFound            string = `{"code":404,"message":"未找到试卷!"}`
-	UserHasExist        string = `{"code":400,"message":"用户已答卷!"}`
-)
 
 func (c *AnswerController) Prepare() {
 	c.Ctx.ResponseWriter.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -51,6 +49,12 @@ func (c *AnswerController) Options() {
 func (c *AnswerController) GetTitle() {
 	var id int
 	var ob map[string]json.RawMessage
+	end, ok := c.GetSession("end").(bool)
+	if ok && end {
+		beego.Informational("用户已答卷")
+		c.Ctx.WriteString(UserHasExist)
+		return
+	}
 
 	fmt.Println(string(c.Ctx.Input.RequestBody))
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &ob)
@@ -152,7 +156,11 @@ func (c *AnswerController) GetPaper() {
 		c.Ctx.WriteString(InternalServerError)
 		return
 	}
-	err = p.RandomQuestion(10, 5, 5)
+	if len(p.Num) != 3 {
+		err = p.RandomQuestion(1000, 1000, 1000) //使limit值大于题数
+	} else {
+		err = p.RandomQuestion(p.Num[0], p.Num[1], p.Num[2])
+	}
 	if err != nil {
 		beego.Error(err)
 		c.Ctx.WriteString(InternalServerError)
@@ -176,16 +184,25 @@ func (c *AnswerController) Answer() {
 
 	number, ok := c.GetSession("number").(string)
 	if !ok {
+		beego.Informational("没有cookie")
 		c.Ctx.WriteString(ForbiddionTimeOut)
 		return
 	}
 	pid, ok := c.GetSession("pid").(int)
-	t, ok := c.GetSession("time").(time.Time)
-	//beego.Debug(time.Now().Sub(t).Minutes())
-	if time.Now().Sub(t).Minutes() > 15.0 {
-		c.Ctx.WriteString(ForbiddionTimeOut)
-		return
-	}
+	//t, ok := c.GetSession("time").(time.Time)
+	////beego.Debug(time.Now().Sub(t).Minutes())
+	//p, err := models.GetPaper(pid)
+	//if err != nil {
+	//beego.Informational(err)
+	//c.Ctx.WriteString(ForbiddionTimeOut)
+	//return
+	//}
+	//if time.Now().Sub(t).Seconds() > p.TimeLimit {
+	//beego.Informational(time.Now().Sub(t).Seconds())
+	//beego.Informational("答题超时!")
+	//c.Ctx.WriteString(ForbiddionTimeOut)
+	//return
+	//}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &ob)
 	if err != nil {
 		beego.Error(err)
