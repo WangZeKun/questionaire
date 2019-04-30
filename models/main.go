@@ -12,7 +12,7 @@ var DB *sql.DB
 
 func init() {
 	var err error
-	DB, err = sql.Open("mysql", "root:745521@/zekin?charset=utf8")
+	DB, err = sql.Open("mysql", "root:745521@tcp(sql:3306)/zekin?charset=utf8")
 	if err != nil {
 		panic(err)
 	}

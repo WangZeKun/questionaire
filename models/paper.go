@@ -25,7 +25,10 @@ func GetPaper(id int) (p Paper, err error) {
 	var sTime, eTime string
 	var num, other []byte
 	row := DB.QueryRow("select id,title,start_time,end_time,num,other,time_limit from paper where id = ?", id)
-	row.Scan(&p.Id, &p.Title, &sTime, &eTime, &num, &other, &p.TimeLimit)
+	err = row.Scan(&p.Id, &p.Title, &sTime, &eTime, &num, &other, &p.TimeLimit)
+	if err != nil {
+		return Paper{}, err
+	}
 	p.StartTime, _ = time.Parse("2006-01-02 15:04:05", sTime)
 	p.EndTime, _ = time.Parse("2006-01-02 15:04:05", eTime)
 	json.Unmarshal(num, &p.Num)
@@ -33,6 +36,8 @@ func GetPaper(id int) (p Paper, err error) {
 	if err != nil {
 		return Paper{}, err
 	}
+	beego.Informational(p)
+	beego.Informational(time.Now())
 	if p.StartTime.After(time.Now()) {
 		return Paper{}, ErrTimeEarly
 	} else if p.EndTime.Before(time.Now()) {

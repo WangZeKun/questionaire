@@ -1,0 +1,17 @@
+version: "3"
+services:
+  sql:
+    image: mariadb
+    expose:
+      - "3306"
+    environment:
+      - TIMEZONE=Asis/Shanghai
+      - MYSQL_ROOT_PASSWORD=745521
+      - SERVER_ID=1
+
+  service:
+    image: wzekin/questionaire1
+    depends_on:
+      - sql
+    ports:
+      - "8080:8080"
